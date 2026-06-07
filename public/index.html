@@ -48,7 +48,7 @@ label{font-size:10px;color:#666;text-transform:uppercase;letter-spacing:.5px;dis
 <body><div class="grid-bg"></div><div id="app"></div><div class="toast-cont" id="toasts"></div>
 
 <script>
-var API='http://localhost:5000';
+var API=window.location.hostname==='localhost'?'http://localhost:5000':'';
 var STATE={view:'landing',user:null,token:null,assessment:null,currentQ:0,answers:{},diagnosticAnswers:{},step:'role'};
 
 var JOB_ROLES=['Software Developer','Data Scientist','SAP Consultant','Product Manager','UX Designer','DevOps Engineer','Cybersecurity Analyst','Cloud Architect','AI/ML Engineer','Business Analyst'];
@@ -331,13 +331,13 @@ async function sendMentor(){
 }
 
 // ── Init ──
-(function init(){
+function initApp(){
   try{var saved=localStorage.getItem('ss_user');if(saved){var d=JSON.parse(saved);STATE.user=d.user;STATE.token=d.token;STATE.view='dashboard';}}catch(e){}
-  // Handle email verification from URL
   var params=new URLSearchParams(window.location.search);
   if(params.get('token')){api('GET','/api/auth/verify?token='+params.get('token')).then(function(){toast('Email verified!',true);window.history.replaceState({},'','/');}).catch(function(e){toast(e.message,false);});}
   render();
-})();
+}
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initApp);}else{initApp();}
 </script>
 </body>
 </html>

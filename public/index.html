@@ -87,7 +87,16 @@ async function api(method, path, body){
   if (body) opts.body = JSON.stringify(body);
   var r = await fetch(API + path, opts);
   var d = await r.json();
-  if (!r.ok) throw new Error(d.error || 'Request failed');
+  if (!r.ok) {
+    if (d.error === 'Invalid token' || d.error === 'Not authenticated') {
+      localStorage.removeItem('ss_user');
+      S.user = null; S.token = null; S.view = 'landing';
+      render();
+      toast('Session expired. Please log in again.', 'err');
+      throw new Error('Session expired');
+    }
+    throw new Error(d.error || 'Request failed');
+  }
   return d;
 }
 

@@ -35,7 +35,8 @@ module.exports = function(emailService) {
 
       // Send verification email
       if (emailService && emailService.transporter) {
-        const verifyLink = `http://localhost:5000/verify.html?token=${verifyToken}`;
+        const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:5000';
+        const verifyLink = `${baseUrl}/verify.html?token=${verifyToken}`;
         try {
           await emailService.transporter.sendMail({
             from: `"Skill Sprint" <${config.smtp.user}>`,

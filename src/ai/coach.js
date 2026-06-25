@@ -25,7 +25,7 @@ class AICoach {
       });
       return resp.data.choices[0].message.content;
     } catch (e) {
-      console.error('AI call failed:', e.message);
+      console.error('AI call failed:', e.message, e.response?.data || '');
       return this._fallback(userMessage);
     }
   }
@@ -204,6 +204,7 @@ Respond as their personal career mentor.`;
    * Resume analysis
    */
   async analyzeResume(resumeText, jobRole) {
+    console.log('[AI] Analyzing resume for:', jobRole, 'text length:', resumeText.length);
     const prompt = `You are a professional resume analyst and career coach. Analyze this resume for a ${jobRole} position.
 
 Resume:
@@ -224,12 +225,20 @@ Provide analysis in JSON:
 }`;
 
     const resp = await this._callAI(prompt, 'Analyze resume', 0.3, 2000);
+    console.log('[AI] Resume response length:', resp?.length, 'starts with:', resp?.substring(0, 100));
     try {
       const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) return JSON.parse(jsonMatch[0]);
+      if (jsonMatch) {
+        console.log('[AI] JSON match found, length:', jsonMatch[0].length);
+        return JSON.parse(jsonMatch[0]);
+      }
+      console.log('[AI] No JSON match found');
       return null;
-    } catch (e) { return null; }
+    } catch (e) {
+      console.error('[AI] JSON parse error:', e.message);
+      return null;
+    }
   }
 
   _fallbackAssessment(jobRole) {

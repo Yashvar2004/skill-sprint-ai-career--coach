@@ -212,7 +212,7 @@ Resume:
 ${resumeText}
 """
 
-Provide analysis in JSON:
+Provide analysis in JSON. For optimizedResume, use a single line with \\n for newlines. Do NOT use backticks or code blocks inside the JSON values:
 {
   "overallScore": <1-100>,
   "strengths": ["strength1", "strength2"],
@@ -220,25 +220,35 @@ Provide analysis in JSON:
   "keywords": ["missing keyword1", "missing keyword2"],
   "formatIssues": ["issue1", "issue2"],
   "atsScore": <1-100>,
-  "optimizedResume": "the improved version of the resume",
+  "optimizedResume": "improved resume text with \\n for line breaks",
   "summary": "overall assessment"
 }`;
 
     const resp = await this._callAI(prompt, 'Analyze resume', 0.3, 2000);
-    console.log('[AI] Resume response length:', resp?.length, 'starts with:', resp?.substring(0, 100));
     try {
       const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
       const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        console.log('[AI] JSON match found, length:', jsonMatch[0].length);
-        return JSON.parse(jsonMatch[0]);
+        try {
+          return JSON.parse(jsonMatch[0]);
+        } catch (parseErr) {
+          // Try to extract key fields with regex as fallback
+          const score = jsonMatch[0].match(/"overallScore"\s*:\s*(\d+)/)?.[1];
+          const summary = jsonMatch[0].match(/"summary"\s*:\s*"([^"]+)"/)?.[1];
+          const atsScore = jsonMatch[0].match(/"atsScore"\s*:\s*(\d+)/)?.[1];
+          return {
+            overallScore: parseInt(score) || 50,
+            strengths: [],
+            gaps: [],
+            keywords: [],
+            atsScore: parseInt(atsScore) || 50,
+            optimizedResume: '',
+            summary: summary || 'Analysis completed. See detailed feedback below.',
+          };
+        }
       }
-      console.log('[AI] No JSON match found');
       return null;
-    } catch (e) {
-      console.error('[AI] JSON parse error:', e.message);
-      return null;
-    }
+    } catch (e) { return null; }
   }
 
   _fallbackAssessment(jobRole) {

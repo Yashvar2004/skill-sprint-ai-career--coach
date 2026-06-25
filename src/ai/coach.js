@@ -12,7 +12,7 @@ class AICoach {
     }
     try {
       const resp = await axios.post(config.ai.baseUrl + '/chat/completions', {
-        model: 'deepseek-chat',
+        model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userMessage },

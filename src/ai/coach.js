@@ -65,9 +65,9 @@ Return ONLY valid JSON in this exact format:
     try {
       const jsonMatch = resp.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
-      return this._generateFallbackAssessment(jobRole);
+      return this._fallbackAssessment(jobRole);
     } catch (e) {
-      return this._generateFallbackAssessment(jobRole);
+      return this._fallbackAssessment(jobRole);
     }
   }
 

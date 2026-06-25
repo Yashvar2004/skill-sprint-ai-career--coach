@@ -63,7 +63,9 @@ Return ONLY valid JSON in this exact format:
       0.5, 2000);
 
     try {
-      const jsonMatch = resp.match(/\{[\s\S]*\}/);
+      // Handle markdown-wrapped JSON
+      const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
       return this._fallbackAssessment(jobRole);
     } catch (e) {
@@ -93,7 +95,8 @@ Provide a detailed analysis in JSON format:
 
     const resp = await this._callAI(prompt, 'Analyze assessment results', 0.3, 1500);
     try {
-      const jsonMatch = resp.match(/\{[\s\S]*\}/);
+      const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
       return { score: 50, skillGaps: [], strengths: [], summary: 'Analysis completed.', focusAreas: [], readinessLevel: 'intermediate' };
     } catch (e) {
@@ -125,7 +128,8 @@ Return JSON:
 
     const resp = await this._callAI(prompt, `Generate diagnostic questions for ${jobRole}`, 0.5, 1500);
     try {
-      const jsonMatch = resp.match(/\{[\s\S]*\}/);
+      const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
       return this._fallbackDiagnostic(jobRole);
     } catch (e) {
@@ -161,7 +165,8 @@ Generate a detailed report in JSON:
 
     const resp = await this._callAI(prompt, 'Generate career report', 0.3, 2000);
     try {
-      const jsonMatch = resp.match(/\{[\s\S]*\}/);
+      const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
       return null;
     } catch (e) { return null; }
@@ -220,7 +225,8 @@ Provide analysis in JSON:
 
     const resp = await this._callAI(prompt, 'Analyze resume', 0.3, 2000);
     try {
-      const jsonMatch = resp.match(/\{[\s\S]*\}/);
+      const cleaned = resp.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
       if (jsonMatch) return JSON.parse(jsonMatch[0]);
       return null;
     } catch (e) { return null; }

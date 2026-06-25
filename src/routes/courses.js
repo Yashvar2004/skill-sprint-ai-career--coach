@@ -13,7 +13,6 @@ function authMiddleware(req, res, next) {
   } catch (e) { res.status(401).json({ error: 'Invalid token' }); }
 }
 
-// Curated free courses database
 const COURSES = {
   'Software Developer': [
     { name: 'CS50: Introduction to Computer Science', platform: 'Harvard/edX', level: 'Beginner', cost: 'free', link: 'https://cs50.harvard.edu/', category: 'Programming' },
@@ -51,10 +50,9 @@ const ALL_CERTIFICATIONS = [
 ];
 
 module.exports = function() {
-  // GET /api/courses/:jobRole
-  router.get('/api/courses/:jobRole', authMiddleware, (req, res) => {
+  router.get('/api/courses/:jobRole', authMiddleware, async (req, res) => {
     const { jobRole } = req.params;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
     const isPaid = user.subscription === 'paid';
 
     let courses = COURSES[jobRole] || COURSES['Software Developer'];
@@ -70,12 +68,10 @@ module.exports = function() {
     });
   });
 
-  // GET /api/certifications
   router.get('/api/certifications', authMiddleware, (req, res) => {
     res.json({ certifications: ALL_CERTIFICATIONS });
   });
 
-  // GET /api/courses/search?q=keyword
   router.get('/api/courses/search', authMiddleware, (req, res) => {
     const q = (req.query.q || '').toLowerCase();
     const allCourses = Object.values(COURSES).flat();

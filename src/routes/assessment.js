@@ -17,51 +17,46 @@ function authMiddleware(req, res, next) {
 }
 
 module.exports = function(emailService) {
-  // POST /api/assessment/generate — AI generates assessment questions
+  // POST /api/assessment/generate
   router.post('/api/assessment/generate', authMiddleware, async (req, res) => {
     try {
       const { jobRole, careerPath, experienceLevel } = req.body;
       if (!jobRole) return res.status(400).json({ error: 'Job role required' });
 
-      // Check free tier limits
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
-      const assessmentCount = db.prepare('SELECT COUNT(*) as count FROM assessments WHERE user_id = ?').get(req.user.id);
+      const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+      const assessmentCount = await db.prepare('SELECT COUNT(*) as count FROM assessments WHERE user_id = ?').get(req.user.id);
       if (user.subscription === 'free' && assessmentCount.count >= config.freeTier.maxAssessments) {
         return res.status(403).json({ error: 'Free tier limit reached. Upgrade for unlimited assessments.', upgrade: true });
       }
 
       const assessment = await ai.generateAssessment(jobRole, careerPath || 'Technology', experienceLevel || 'Entry Level');
 
-      // Store in DB
-      const result = db.prepare('INSERT INTO assessments (user_id, job_role, career_path, questions) VALUES (?,?,?,?)')
+      const result = await db.prepare('INSERT INTO assessments (user_id, job_role, career_path, questions) VALUES (?,?,?,?) RETURNING id')
         .run(req.user.id, jobRole, careerPath || '', JSON.stringify(assessment.questions));
 
       res.json({
         success: true,
-        assessmentId: result.lastInsertRowid,
+        assessmentId: result[0]?.id || result.lastInsertRowid,
         jobRole,
         ...assessment,
       });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // POST /api/assessment/submit — submit answers and get analysis
+  // POST /api/assessment/submit
   router.post('/api/assessment/submit', authMiddleware, async (req, res) => {
     try {
       const { assessmentId, answers, jobRole } = req.body;
       if (!assessmentId || !answers) return res.status(400).json({ error: 'Assessment ID and answers required' });
 
-      const assessment = db.prepare('SELECT * FROM assessments WHERE id = ? AND user_id = ?').get(assessmentId, req.user.id);
+      const assessment = await db.prepare('SELECT * FROM assessments WHERE id = ? AND user_id = ?').get(assessmentId, req.user.id);
       if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
 
       const questions = JSON.parse(assessment.questions);
       const result = await ai.analyzeResults(jobRole, questions, answers);
-
-      // Generate diagnostic questions
       const diagnostics = await ai.generateDiagnosticQuestions(jobRole, result.skillGaps || [], result.score);
 
-      // Update DB
-      db.prepare('UPDATE assessments SET answers=?, score=?, skill_gaps=?, strengths=?, report=? WHERE id=?')
+      await db.prepare('UPDATE assessments SET answers=?, score=?, skill_gaps=?, strengths=?, report=? WHERE id=?')
         .run(JSON.stringify(answers), result.score, JSON.stringify(result.skillGaps), JSON.stringify(result.strengths), JSON.stringify(result), assessmentId);
 
       res.json({
@@ -73,22 +68,20 @@ module.exports = function(emailService) {
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // POST /api/assessment/report — generate final report
+  // POST /api/assessment/report
   router.post('/api/assessment/report', authMiddleware, async (req, res) => {
     try {
       const { assessmentId, jobRole, diagnosticAnswers, userName } = req.body;
 
-      const assessment = db.prepare('SELECT * FROM assessments WHERE id = ? AND user_id = ?').get(assessmentId, req.user.id);
+      const assessment = await db.prepare('SELECT * FROM assessments WHERE id = ? AND user_id = ?').get(assessmentId, req.user.id);
       if (!assessment) return res.status(404).json({ error: 'Assessment not found' });
 
       const analysisData = JSON.parse(assessment.report || '{}');
       const report = await ai.generateReport(userName || req.user.name, jobRole, analysisData, diagnosticAnswers);
 
-      // Store report
-      db.prepare('UPDATE assessments SET report=? WHERE id=?').run(JSON.stringify(report), assessmentId);
+      await db.prepare('UPDATE assessments SET report=? WHERE id=?').run(JSON.stringify(report), assessmentId);
 
-      // Send email with report
-      const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+      const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
       if (emailService && emailService.transporter && report) {
         await emailService.transporter.sendMail({
           from: `"Skill Sprint" <${config.smtp.user}>`,
@@ -103,8 +96,8 @@ module.exports = function(emailService) {
   });
 
   // GET /api/assessment/history
-  router.get('/api/assessment/history', authMiddleware, (req, res) => {
-    const assessments = db.prepare('SELECT id, job_role, score, created_at FROM assessments WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
+  router.get('/api/assessment/history', authMiddleware, async (req, res) => {
+    const assessments = await db.prepare('SELECT id, job_role, score, created_at FROM assessments WHERE user_id = ? ORDER BY created_at DESC').all(req.user.id);
     res.json({ assessments });
   });
 

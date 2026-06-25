@@ -17,7 +17,7 @@ module.exports = function(emailService) {
       }
 
       const normalizedEmail = email.toLowerCase().trim();
-      const existing = db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
+      const existing = await db.prepare('SELECT * FROM users WHERE email = ?').get(normalizedEmail);
       if (existing && existing.verified) {
         return res.status(400).json({ error: 'Email already registered. Please log in.' });
       }
@@ -26,10 +26,10 @@ module.exports = function(emailService) {
       VERIFY_TOKENS.set(verifyToken, { email: normalizedEmail, name: name.trim() });
 
       if (existing) {
-        db.prepare('UPDATE users SET name=?, organization=?, verify_token=? WHERE email=?')
+        await db.prepare('UPDATE users SET name=?, organization=?, verify_token=? WHERE email=?')
           .run(name.trim(), (organization || '').trim(), verifyToken, normalizedEmail);
       } else {
-        db.prepare('INSERT INTO users (name, email, organization, verify_token) VALUES (?,?,?,?)')
+        await db.prepare('INSERT INTO users (name, email, organization, verify_token) VALUES (?,?,?,?)')
           .run(name.trim(), normalizedEmail, (organization || '').trim(), verifyToken);
       }
 
@@ -62,48 +62,52 @@ module.exports = function(emailService) {
   });
 
   // GET /api/auth/verify?token=xxx
-  router.get('/api/auth/verify', (req, res) => {
+  router.get('/api/auth/verify', async (req, res) => {
     const { token } = req.query;
     if (!token || !VERIFY_TOKENS.has(token)) {
       return res.status(400).json({ error: 'Invalid or expired token.' });
     }
     const data = VERIFY_TOKENS.get(token);
-    db.prepare('UPDATE users SET verified=1, verify_token=NULL WHERE email=?').run(data.email);
+    await db.prepare('UPDATE users SET verified=1, verify_token=NULL WHERE email=?').run(data.email);
     VERIFY_TOKENS.delete(token);
     res.json({ success: true, message: 'Email verified! You can now log in.', email: data.email });
   });
 
   // POST /api/auth/login
-  router.post('/api/auth/login', (req, res) => {
-    const { email } = req.body;
-    if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required' });
+  router.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || !email.includes('@')) return res.status(400).json({ error: 'Valid email required' });
 
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
-    if (!user) return res.status(404).json({ error: 'User not found. Please register first.' });
+      const user = await db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim());
+      if (!user) return res.status(404).json({ error: 'User not found. Please register first.' });
 
-    db.prepare('UPDATE users SET last_login = datetime(\'now\') WHERE id = ?').run(user.id);
+      await db.prepare("UPDATE users SET last_login = NOW() WHERE id = ?").run(user.id);
 
-    const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, config.jwtSecret, { expiresIn: '7d' });
+      const token = jwt.sign({ id: user.id, email: user.email, name: user.name }, config.jwtSecret, { expiresIn: '7d' });
 
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user.id, name: user.name, email: user.email,
-        organization: user.organization || '',
-        subscription: user.subscription, verified: !!user.verified,
-        wipeCount: user.wipeCount || 0,
-      },
-    });
+      res.json({
+        success: true,
+        token,
+        user: {
+          id: user.id, name: user.name, email: user.email,
+          organization: user.organization || '',
+          subscription: user.subscription, verified: !!user.verified,
+          wipeCount: user.wipeCount || 0,
+        },
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
   });
 
   // GET /api/auth/me
-  router.get('/api/auth/me', (req, res) => {
+  router.get('/api/auth/me', async (req, res) => {
     const auth = req.headers.authorization;
     if (!auth) return res.status(401).json({ error: 'Not authenticated' });
     try {
       const decoded = jwt.verify(auth.replace('Bearer ', ''), config.jwtSecret);
-      const user = db.prepare('SELECT id, name, email, organization, subscription, verified FROM users WHERE id = ?').get(decoded.id);
+      const user = await db.prepare('SELECT id, name, email, organization, subscription, verified FROM users WHERE id = ?').get(decoded.id);
       if (!user) return res.status(404).json({ error: 'User not found' });
       res.json({ user });
     } catch (e) {

@@ -17,14 +17,12 @@ function authMiddleware(req, res, next) {
 }
 
 module.exports = function() {
-  // POST /api/mentor/chat
   router.post('/api/mentor/chat', authMiddleware, async (req, res) => {
     try {
       const { message, chatHistory } = req.body;
       if (!message) return res.status(400).json({ error: 'Message required' });
 
-      // Get user's latest assessment for context
-      const assessment = db.prepare('SELECT * FROM assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(req.user.id);
+      const assessment = await db.prepare('SELECT * FROM assessments WHERE user_id = ? ORDER BY created_at DESC LIMIT 1').get(req.user.id);
 
       const userContext = {
         jobRole: assessment?.job_role || 'Not specified',
@@ -36,17 +34,15 @@ module.exports = function() {
 
       const response = await ai.mentorChat(message, userContext, chatHistory || []);
 
-      // Store chat
-      db.prepare('INSERT INTO mentor_chats (user_id, message, response, context) VALUES (?,?,?,?)')
+      await db.prepare('INSERT INTO mentor_chats (user_id, message, response, context) VALUES (?,?,?,?)')
         .run(req.user.id, message, response, JSON.stringify(userContext));
 
       res.json({ success: true, response });
     } catch (e) { res.status(500).json({ error: e.message }); }
   });
 
-  // GET /api/mentor/history
-  router.get('/api/mentor/history', authMiddleware, (req, res) => {
-    const chats = db.prepare('SELECT message, response, created_at FROM mentor_chats WHERE user_id = ? ORDER BY created_at DESC LIMIT 50').all(req.user.id);
+  router.get('/api/mentor/history', authMiddleware, async (req, res) => {
+    const chats = await db.prepare('SELECT message, response, created_at FROM mentor_chats WHERE user_id = ? ORDER BY created_at DESC LIMIT 50').all(req.user.id);
     res.json({ chats });
   });
 

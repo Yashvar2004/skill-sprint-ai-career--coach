@@ -90,21 +90,21 @@ const db = {
           // Convert SQLite ? placeholders to $1, $2, etc.
           let idx = 0;
           const pgSql = sqlStr.replace(/\?/g, () => `$${++idx}`);
-          sql(pgSql, params).then(rows => resolve(rows[0] || null)).catch(reject);
+          sql.query(pgSql, params).then(rows => resolve(rows[0] || null)).catch(reject);
         });
       },
       all(...params) {
         return new Promise((resolve, reject) => {
           let idx = 0;
           const pgSql = sqlStr.replace(/\?/g, () => `$${++idx}`);
-          sql(pgSql, params).then(rows => resolve(rows || [])).catch(reject);
+          sql.query(pgSql, params).then(rows => resolve(rows || [])).catch(reject);
         });
       },
       run(...params) {
         return new Promise((resolve, reject) => {
           let idx = 0;
           const pgSql = sqlStr.replace(/\?/g, () => `$${++idx}`);
-          sql(pgSql, params).then(rows => resolve({ changes: rows.length })).catch(reject);
+          sql.query(pgSql, params).then(rows => resolve({ changes: rows.length })).catch(reject);
         });
       },
     };

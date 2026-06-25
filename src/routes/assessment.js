@@ -31,12 +31,15 @@ module.exports = function(emailService) {
 
       const assessment = await ai.generateAssessment(jobRole, careerPath || 'Technology', experienceLevel || 'Entry Level');
 
-      const result = await db.prepare('INSERT INTO assessments (user_id, job_role, career_path, questions) VALUES (?,?,?,?) RETURNING id')
+      await db.prepare('INSERT INTO assessments (user_id, job_role, career_path, questions) VALUES (?,?,?,?)')
         .run(req.user.id, jobRole, careerPath || '', JSON.stringify(assessment.questions));
+
+      // Get the last inserted ID
+      const lastId = await db.prepare('SELECT MAX(id) as id FROM assessments WHERE user_id = ?').get(req.user.id);
 
       res.json({
         success: true,
-        assessmentId: result[0]?.id || result.lastInsertRowid,
+        assessmentId: lastId?.id,
         jobRole,
         ...assessment,
       });
